@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -178,6 +179,7 @@ class PDFScreen extends StatefulWidget {
 class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
   final Completer<PDFViewController> _controller =
       Completer<PDFViewController>();
+
   int? pages = 0;
   int? currentPage = 0;
   bool isReady = false;
@@ -316,7 +318,8 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
             'width': 200.0,
             'height': 100.0,
             'file': file,
-            'page': currentPage
+            'page': currentPage,
+            'selected': true
           });
         });
 
@@ -328,6 +331,9 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
       print('Failed to decode image.');
     }
   }
+
+  double _currentScale = 1.0;
+  Offset _currentOffset = Offset.zero; // Track the current pan offset
 
   @override
   Widget build(BuildContext context) {
@@ -343,48 +349,61 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
       ),
       body: Stack(
         children: <Widget>[
-          PDFView(
-            filePath: widget.path,
-            enableSwipe: true,
-            swipeHorizontal: true,
-            autoSpacing: false,
-            pageFling: true,
-            pageSnap: true,
-            defaultPage: currentPage!,
-            fitPolicy: FitPolicy.BOTH,
-            preventLinkNavigation:
-                false, // if set to true the link is handled in flutter
-            backgroundColor: Colors.black,
-            onRender: (_pages) {
+          InteractiveViewer(
+            onInteractionUpdate: (details) {
               setState(() {
-                pages = _pages;
-                isReady = true;
+                // _currentScale = double.parse(details.scale.toStringAsFixed(2));
+
+                _currentScale =
+                    max(1.0, double.parse(details.scale.toStringAsFixed(10)));
+                _currentOffset = details.focalPoint; // Track pan offset
+                // _currentScale =
+                print('new $_currentScale');
               });
             },
-            onError: (error) {
-              setState(() {
-                errorMessage = error.toString();
-              });
-              print(error.toString());
-            },
-            onPageError: (page, error) {
-              setState(() {
-                errorMessage = '$page: ${error.toString()}';
-              });
-              print('$page: ${error.toString()}');
-            },
-            onViewCreated: (PDFViewController pdfViewController) {
-              _controller.complete(pdfViewController);
-            },
-            onLinkHandler: (String? uri) {
-              print('goto uri: $uri');
-            },
-            onPageChanged: (int? page, int? total) {
-              print('page change: $page/$total');
-              setState(() {
-                currentPage = page;
-              });
-            },
+            child: PDFView(
+              filePath: widget.path,
+              enableSwipe: true,
+              swipeHorizontal: true,
+              autoSpacing: false,
+              pageFling: true,
+              pageSnap: true,
+              defaultPage: currentPage!,
+              fitPolicy: FitPolicy.BOTH,
+              preventLinkNavigation:
+                  false, // if set to true the link is handled in flutter
+              backgroundColor: Colors.black,
+              onRender: (_pages) {
+                setState(() {
+                  pages = _pages;
+                  isReady = true;
+                });
+              },
+              onError: (error) {
+                setState(() {
+                  errorMessage = error.toString();
+                });
+                print(error.toString());
+              },
+              onPageError: (page, error) {
+                setState(() {
+                  errorMessage = '$page: ${error.toString()}';
+                });
+                print('$page: ${error.toString()}');
+              },
+              onViewCreated: (PDFViewController pdfViewController) {
+                _controller.complete(pdfViewController);
+              },
+              onLinkHandler: (String? uri) {
+                print('goto uri: $uri');
+              },
+              onPageChanged: (int? page, int? total) {
+                print('page change: $page/$total');
+                setState(() {
+                  currentPage = page;
+                });
+              },
+            ),
           ),
           errorMessage.isEmpty
               ? !isReady
@@ -404,91 +423,109 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
           for (int i = 0; i < items.length; i++)
             currentPage == items[i]['page']
                 ? Positioned(
-                    left: items[i]['x'],
-                    top: items[i]['y'],
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          // xPosition += details.delta.dx;
-                          // yPosition += details.delta.dy;
-                          items[i]['x'] += details.delta.dx;
-                          items[i]['y'] += details.delta.dy;
-                        });
+                    left: (items[i]['x'] * _currentScale) +
+                        (_currentOffset.dx / _currentScale),
+                    top: (items[i]['y'] * _currentScale) +
+                        (_currentOffset.dy / _currentScale),
+                    child: TapRegion(
+                      onTapInside: (tap) {
+                        items[i]['selected'] = true;
+
+                        print('On Tap Inside!!');
                       },
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: items[i]['width'],
-                            height: items[i]['height'],
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.blue, width: 2),
-                            ),
-                            child: Image.file(
-                              items[i]['file']!,
+                      onTapOutside: (tap) {
+                        setState(() {
+                          items[i]['selected'] = false;
+                        });
+                        print('On Tap Outside!!');
+                      },
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          setState(() {
+                            // xPosition += details.delta.dx;
+                            // yPosition += details.delta.dy;
+                            items[i]['x'] += details.delta.dx / _currentScale;
+                            items[i]['y'] += details.delta.dy / _currentScale;
+                          });
+                        },
+                        child: Stack(
+                          children: [
+                            Container(
                               width: items[i]['width'],
                               height: items[i]['height'],
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onPanUpdate: (details) {
-                                print('aa');
-                                setState(() {
-                                  // width += details.delta.dx;
-                                  // height += details.delta.dy;
-
-                                  var expectH =
-                                      items[i]['height'] + details.delta.dy;
-                                  if (expectH < 0) {
-                                    items[i]['height'] += 0;
-                                  } else {
-                                    items[i]['height'] += details.delta.dy;
-                                  }
-
-                                  var expectW =
-                                      items[i]['width'] + details.delta.dx;
-                                  if (expectW < 0) {
-                                    items[i]['width'] += 0;
-                                  } else {
-                                    items[i]['width'] += details.delta.dx;
-                                  }
-
-                                  // items[i]['width'] += details.delta.dx;
-                                  // items[i]['height'] += details.delta.dy;
-                                });
-                              },
-                              child: Icon(
-                                Icons.crop_square,
-                                size: 24,
-                                color: Colors.blue,
+                              decoration: BoxDecoration(
+                                border: items[i]['selected'] == true
+                                    ? Border.all(color: Colors.blue, width: 2)
+                                    : Border(),
+                              ),
+                              child: Image.file(
+                                items[i]['file']!,
+                                width: items[i]['width'],
+                                height: items[i]['height'],
+                                fit: BoxFit.contain,
                               ),
                             ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            child: GestureDetector(
-                              onTap: () {
-                                print('waduhd elete');
-                                setState(() {
-                                  items.removeAt(i);
-                                  // width += details.delta.dx;
-                                  // height += details.delta.dy;
-                                  // items[i]['width'] += details.delta.dx;
-                                  // items[i]['height'] += details.delta.dy;
-                                });
-                              },
-                              child: Icon(
-                                Icons.delete,
-                                size: 24,
-                                color: Colors.red,
-                              ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: items[i]['selected'] == true
+                                  ? GestureDetector(
+                                      onPanUpdate: (details) {
+                                        print('aa');
+                                        setState(() {
+                                          // width += details.delta.dx;
+                                          // height += details.delta.dy;
+
+                                          double newHeight = items[i]
+                                                  ['height'] +
+                                              details.delta.dy / _currentScale;
+                                          double newWidth = items[i]['width'] +
+                                              details.delta.dx / _currentScale;
+
+                                          items[i]['height'] = newHeight > 0
+                                              ? newHeight
+                                              : items[i]['height'];
+                                          items[i]['width'] = newWidth > 0
+                                              ? newWidth
+                                              : items[i]['width'];
+
+                                          // items[i]['width'] += details.delta.dx;
+                                          // items[i]['height'] += details.delta.dy;
+                                        });
+                                      },
+                                      child: Icon(
+                                        Icons.crop_square,
+                                        size: 24,
+                                        color: Colors.blue,
+                                      ),
+                                    )
+                                  : SizedBox.shrink(),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              child: items[i]['selected'] == true
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        print('waduhd elete');
+                                        setState(() {
+                                          items.removeAt(i);
+                                          // width += details.delta.dx;
+                                          // height += details.delta.dy;
+                                          // items[i]['width'] += details.delta.dx;
+                                          // items[i]['height'] += details.delta.dy;
+                                        });
+                                      },
+                                      child: Icon(
+                                        Icons.delete,
+                                        size: 24,
+                                        color: Colors.red,
+                                      ),
+                                    )
+                                  : SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   )
