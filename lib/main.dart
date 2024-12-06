@@ -355,7 +355,7 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                 // _currentScale = double.parse(details.scale.toStringAsFixed(2));
 
                 _currentScale =
-                    max(1.0, double.parse(details.scale.toStringAsFixed(10)));
+                    max(1.0, double.parse(details.scale.toStringAsFixed(5)));
                 _currentOffset = details.focalPoint; // Track pan offset
                 // _currentScale =
                 print('new $_currentScale');
