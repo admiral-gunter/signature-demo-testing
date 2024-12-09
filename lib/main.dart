@@ -416,7 +416,18 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                 ),
           ElevatedButton(
             onPressed: () {
-              showSignatureDialog(context);
+              // showSignatureDialog(context);
+              setState(() {
+                items.add({
+                  'x': 50.0,
+                  'y': 50.0,
+                  'width': MediaQuery.of(context).size.width * 0.3,
+                  'height': MediaQuery.of(context).size.height * 0.05,
+                  'file': 'fileaa',
+                  'page': currentPage,
+                  'selected': true
+                });
+              });
             },
             child: Text('Open Signature Dialog'),
           ),
@@ -454,16 +465,19 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                               width: items[i]['width'],
                               height: items[i]['height'],
                               decoration: BoxDecoration(
+                                color: Colors.green,
                                 border: items[i]['selected'] == true
                                     ? Border.all(color: Colors.blue, width: 2)
                                     : Border(),
                               ),
-                              child: Image.file(
-                                items[i]['file']!,
-                                width: items[i]['width'],
-                                height: items[i]['height'],
-                                fit: BoxFit.contain,
-                              ),
+                              child: Image.network(
+                                  'https://assets.jamkrida-jabar.co.id/assets/brand/jamkrida.png'),
+                              // child: Image.file(
+                              //   items[i]['file']!,
+                              //   width: items[i]['width'],
+                              //   height: items[i]['height'],
+                              //   fit: BoxFit.contain,
+                              // ),
                             ),
                             Positioned(
                               bottom: 0,
@@ -472,32 +486,32 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                                   ? GestureDetector(
                                       onPanUpdate: (details) {
                                         print('aa');
-                                        setState(() {
-                                          // width += details.delta.dx;
-                                          // height += details.delta.dy;
+                                        // setState(() {
+                                        //   // width += details.delta.dx;
+                                        //   // height += details.delta.dy;
 
-                                          double newHeight = items[i]
-                                                  ['height'] +
-                                              details.delta.dy / _currentScale;
-                                          double newWidth = items[i]['width'] +
-                                              details.delta.dx / _currentScale;
+                                        //   double newHeight = items[i]
+                                        //           ['height'] +
+                                        //       details.delta.dy / _currentScale;
+                                        //   double newWidth = items[i]['width'] +
+                                        //       details.delta.dx / _currentScale;
 
-                                          items[i]['height'] = newHeight > 0
-                                              ? newHeight
-                                              : items[i]['height'];
-                                          items[i]['width'] = newWidth > 0
-                                              ? newWidth
-                                              : items[i]['width'];
+                                        //   items[i]['height'] = newHeight > 0
+                                        //       ? newHeight
+                                        //       : items[i]['height'];
+                                        //   items[i]['width'] = newWidth > 0
+                                        //       ? newWidth
+                                        //       : items[i]['width'];
 
-                                          // items[i]['width'] += details.delta.dx;
-                                          // items[i]['height'] += details.delta.dy;
-                                        });
+                                        //   // items[i]['width'] += details.delta.dx;
+                                        //   // items[i]['height'] += details.delta.dy;
+                                        // });
                                       },
-                                      child: Icon(
-                                        Icons.crop_square,
-                                        size: 24,
-                                        color: Colors.blue,
-                                      ),
+                                      // child: Icon(
+                                      //   Icons.crop_square,
+                                      //   size: 24,
+                                      //   color: Colors.blue,
+                                      // ),
                                     )
                                   : SizedBox.shrink(),
                             ),
@@ -518,7 +532,7 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                                       },
                                       child: Icon(
                                         Icons.delete,
-                                        size: 24,
+                                        size: 15,
                                         color: Colors.red,
                                       ),
                                     )
