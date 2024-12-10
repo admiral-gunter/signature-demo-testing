@@ -334,7 +334,7 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
 
   double _currentScale = 1.0;
   Offset _currentOffset = Offset.zero; // Track the current pan offset
-
+  bool _isEditing = false;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -349,61 +349,47 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
       ),
       body: Stack(
         children: <Widget>[
-          InteractiveViewer(
-            onInteractionUpdate: (details) {
+          PDFView(
+            filePath: widget.path,
+            enableSwipe: true,
+            swipeHorizontal: true,
+            autoSpacing: false,
+            pageFling: true,
+            pageSnap: true,
+            defaultPage: currentPage!,
+            fitPolicy: FitPolicy.BOTH,
+            preventLinkNavigation:
+                false, // if set to true the link is handled in flutter
+            backgroundColor: Colors.black,
+            onRender: (_pages) {
               setState(() {
-                // _currentScale = double.parse(details.scale.toStringAsFixed(2));
-
-                _currentScale =
-                    max(1.0, double.parse(details.scale.toStringAsFixed(5)));
-                _currentOffset = details.focalPoint; // Track pan offset
-                // _currentScale =
-                print('new $_currentScale');
+                pages = _pages;
+                isReady = true;
               });
             },
-            child: PDFView(
-              filePath: widget.path,
-              enableSwipe: true,
-              swipeHorizontal: true,
-              autoSpacing: false,
-              pageFling: true,
-              pageSnap: true,
-              defaultPage: currentPage!,
-              fitPolicy: FitPolicy.BOTH,
-              preventLinkNavigation:
-                  false, // if set to true the link is handled in flutter
-              backgroundColor: Colors.black,
-              onRender: (_pages) {
-                setState(() {
-                  pages = _pages;
-                  isReady = true;
-                });
-              },
-              onError: (error) {
-                setState(() {
-                  errorMessage = error.toString();
-                });
-                print(error.toString());
-              },
-              onPageError: (page, error) {
-                setState(() {
-                  errorMessage = '$page: ${error.toString()}';
-                });
-                print('$page: ${error.toString()}');
-              },
-              onViewCreated: (PDFViewController pdfViewController) {
-                _controller.complete(pdfViewController);
-              },
-              onLinkHandler: (String? uri) {
-                print('goto uri: $uri');
-              },
-              onPageChanged: (int? page, int? total) {
-                print('page change: $page/$total');
-                setState(() {
-                  currentPage = page;
-                });
-              },
-            ),
+            onError: (error) {
+              setState(() {
+                errorMessage = error.toString();
+              });
+            },
+            onPageError: (page, error) {
+              setState(() {
+                errorMessage = '$page: ${error.toString()}';
+              });
+              print('$page: ${error.toString()}');
+            },
+            onViewCreated: (PDFViewController pdfViewController) {
+              _controller.complete(pdfViewController);
+            },
+            onLinkHandler: (String? uri) {
+              print('goto uri: $uri');
+            },
+            onPageChanged: (int? page, int? total) {
+              print('page change: $page/$total');
+              setState(() {
+                currentPage = page;
+              });
+            },
           ),
           errorMessage.isEmpty
               ? !isReady
@@ -414,22 +400,51 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
               : Center(
                   child: Text(errorMessage),
                 ),
-          ElevatedButton(
-            onPressed: () {
-              // showSignatureDialog(context);
-              setState(() {
-                items.add({
-                  'x': 50.0,
-                  'y': 50.0,
-                  'width': MediaQuery.of(context).size.width * 0.3,
-                  'height': MediaQuery.of(context).size.height * 0.05,
-                  'file': 'fileaa',
-                  'page': currentPage,
-                  'selected': true
-                });
-              });
-            },
-            child: Text('Open Signature Dialog'),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  // showSignatureDialog(context);
+                  setState(() {
+                    _isEditing = true;
+                    items.add({
+                      'x': 50.0,
+                      'y': 50.0,
+                      'width': MediaQuery.of(context).size.width * 0.3,
+                      'height': MediaQuery.of(context).size.height * 0.05,
+                      'file': 'fileaa',
+                      'page': currentPage,
+                      'selected': true
+                    });
+                  });
+                },
+                child: Text('${_isEditing}'),
+              ),
+              SizedBox(
+                width: 10,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // showSignatureDialog(context);
+                  setState(() {
+                    _isEditing = true;
+                  });
+                },
+                child: Text('Edit'),
+              ),
+              SizedBox(
+                width: 10,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // showSignatureDialog(context);
+                  setState(() {
+                    _isEditing = false;
+                  });
+                },
+                child: Text('Sudahkan Edit'),
+              ),
+            ],
           ),
           for (int i = 0; i < items.length; i++)
             currentPage == items[i]['page']
@@ -440,106 +455,123 @@ class _PDFScreenState extends State<PDFScreen> with WidgetsBindingObserver {
                         (_currentOffset.dy / _currentScale),
                     child: TapRegion(
                       onTapInside: (tap) {
-                        items[i]['selected'] = true;
+                        setState(() {
+                          items[i]['selected'] = true;
+                        });
 
                         print('On Tap Inside!!');
                       },
                       onTapOutside: (tap) {
                         setState(() {
+                          _isEditing = false;
+
                           items[i]['selected'] = false;
                         });
                         print('On Tap Outside!!');
                       },
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            // xPosition += details.delta.dx;
-                            // yPosition += details.delta.dy;
-                            items[i]['x'] += details.delta.dx / _currentScale;
-                            items[i]['y'] += details.delta.dy / _currentScale;
-                          });
-                        },
-                        child: Stack(
-                          children: [
-                            Container(
-                              width: items[i]['width'],
-                              height: items[i]['height'],
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                border: items[i]['selected'] == true
-                                    ? Border.all(color: Colors.blue, width: 2)
-                                    : Border(),
-                              ),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: items[i]['width'],
+                            height: items[i]['height'],
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              border: items[i]['selected'] == true
+                                  ? Border.all(color: Colors.blue, width: 2)
+                                  : Border(),
+                            ),
+                            child: GestureDetector(
+                              onPanUpdate: (details) {
+                                if (!_isEditing) return;
+
+                                if (_isEditing) {
+                                  setState(() {
+                                    // xPosition += details.delta.dx;
+                                    // yPosition += details.delta.dy;
+
+                                    // items[i]['x'] +=
+                                    //     details.delta.dx / _currentScale;
+                                    // items[i]['y'] +=
+                                    //     details.delta.dy / _currentScale;
+
+                                    items[i]['x'] += details.delta.dx;
+                                    items[i]['y'] += details.delta.dy;
+                                  });
+                                }
+
+                                print('x ${items[i]['x']}');
+                                print('y ${items[i]['y']}');
+                              },
                               child: Image.network(
                                   'https://assets.jamkrida-jabar.co.id/assets/brand/jamkrida.png'),
-                              // child: Image.file(
-                              //   items[i]['file']!,
-                              //   width: items[i]['width'],
-                              //   height: items[i]['height'],
-                              //   fit: BoxFit.contain,
-                              // ),
                             ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: items[i]['selected'] == true
-                                  ? GestureDetector(
-                                      onPanUpdate: (details) {
-                                        print('aa');
-                                        // setState(() {
-                                        //   // width += details.delta.dx;
-                                        //   // height += details.delta.dy;
+                            // child: Image.file(
+                            //   items[i]['file']!,
+                            //   width: items[i]['width'],
+                            //   height: items[i]['height'],
+                            //   fit: BoxFit.contain,
+                            // ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: items[i]['selected'] == true
+                                ? GestureDetector(
+                                    onPanUpdate: (details) {
+                                      print('aa');
+                                      // setState(() {
+                                      //   // width += details.delta.dx;
+                                      //   // height += details.delta.dy;
 
-                                        //   double newHeight = items[i]
-                                        //           ['height'] +
-                                        //       details.delta.dy / _currentScale;
-                                        //   double newWidth = items[i]['width'] +
-                                        //       details.delta.dx / _currentScale;
+                                      //   double newHeight = items[i]
+                                      //           ['height'] +
+                                      //       details.delta.dy / _currentScale;
+                                      //   double newWidth = items[i]['width'] +
+                                      //       details.delta.dx / _currentScale;
 
-                                        //   items[i]['height'] = newHeight > 0
-                                        //       ? newHeight
-                                        //       : items[i]['height'];
-                                        //   items[i]['width'] = newWidth > 0
-                                        //       ? newWidth
-                                        //       : items[i]['width'];
+                                      //   items[i]['height'] = newHeight > 0
+                                      //       ? newHeight
+                                      //       : items[i]['height'];
+                                      //   items[i]['width'] = newWidth > 0
+                                      //       ? newWidth
+                                      //       : items[i]['width'];
 
-                                        //   // items[i]['width'] += details.delta.dx;
-                                        //   // items[i]['height'] += details.delta.dy;
-                                        // });
-                                      },
-                                      // child: Icon(
-                                      //   Icons.crop_square,
-                                      //   size: 24,
-                                      //   color: Colors.blue,
-                                      // ),
-                                    )
-                                  : SizedBox.shrink(),
-                            ),
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              child: items[i]['selected'] == true
-                                  ? GestureDetector(
-                                      onTap: () {
-                                        print('waduhd elete');
-                                        setState(() {
-                                          items.removeAt(i);
-                                          // width += details.delta.dx;
-                                          // height += details.delta.dy;
-                                          // items[i]['width'] += details.delta.dx;
-                                          // items[i]['height'] += details.delta.dy;
-                                        });
-                                      },
-                                      child: Icon(
-                                        Icons.delete,
-                                        size: 15,
-                                        color: Colors.red,
-                                      ),
-                                    )
-                                  : SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
+                                      //   // items[i]['width'] += details.delta.dx;
+                                      //   // items[i]['height'] += details.delta.dy;
+                                      // });
+                                    },
+                                    // child: Icon(
+                                    //   Icons.crop_square,
+                                    //   size: 24,
+                                    //   color: Colors.blue,
+                                    // ),
+                                  )
+                                : SizedBox.shrink(),
+                          ),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            child: items[i]['selected'] == true
+                                ? GestureDetector(
+                                    onTap: () {
+                                      print('waduhd elete');
+                                      setState(() {
+                                        items.removeAt(i);
+                                        // width += details.delta.dx;
+                                        // height += details.delta.dy;
+                                        // items[i]['width'] += details.delta.dx;
+                                        // items[i]['height'] += details.delta.dy;
+                                      });
+                                    },
+                                    child: Icon(
+                                      Icons.delete,
+                                      size: 15,
+                                      color: Colors.red,
+                                    ),
+                                  )
+                                : SizedBox.shrink(),
+                          ),
+                        ],
                       ),
                     ),
                   )
